@@ -30,7 +30,7 @@
     <arg name="source"          value="0" />
     <arg name="color_space"     value="13" />
   </include>
-  
+
   <!-- launch pose manager -->
   <include file="$(find naoqi_pose)/launch/pose_manager.launch" ns="$(arg namespace)/pose" >
     <arg name="nao_ip"            value="$(arg nao_ip)" />
