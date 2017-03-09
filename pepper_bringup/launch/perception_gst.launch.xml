@@ -1,0 +1,126 @@
+<launch>
+  <arg name="namespace" />
+
+  <arg name="respawn" default="false" />
+
+  <arg name="launch_manager" default="true" />
+  <arg name="manager" default="camera_nodelet_manager" />
+  <arg name="debug" default="false" />
+  <arg name="num_worker_threads" default="8" />
+
+  <arg name="enable_processing" default="true" />
+  <arg name="rectify" default="true" />
+  <arg name="debayer_processing" default="false" />
+  <arg name="disparity_processing" default="false" />
+
+  <arg name="depth_registration" default="true" />
+  <arg name="depth_registered" default="depth_registered" />
+  <arg name="hw_registered_processing"        default="false" />
+  <arg name="sw_registered_processing"        default="true" />
+
+  <!-- if depth_registration is set to false, publish pointcloud without rgb instead -->
+  <arg name="points_xyz" value="false" if="$(arg depth_registration)" />
+  <arg name="points_xyz" value="true"  unless="$(arg depth_registration)" />
+
+  <arg name="PORT_CAMERA_FRONT"   default="3000" />
+  <arg name="PORT_CAMERA_BOTTOM"   default="3001" />
+
+  <!-- The GStreamer framerate needs to be an integral fraction -->
+  <arg name="FPS" default="20/1"/>
+
+  <group ns="$(arg namespace)/camera">
+
+    <!-- launch gstreamer (RGB front and bottom) -->
+    <node name="camera_front" pkg="gscam" type="gscam" output="screen">
+      <param name="camera_name" value="front_camera"/>
+      <param name="camera_info_url" value="package://pepper_bringup/config/front_calibration_parameters.ini"/>
+      <param name="gscam_config" value=" udpsrc port=$(arg PORT_CAMERA_FRONT) ! application/x-rtp, encoding-name=JPEG,payload=26 ! rtpjpegdepay ! jpegparse"/>
+      <param name="frame_id" value="CameraTop_optical_frame"/>
+      <param name="image_encoding" value="jpeg"/>
+      <!-- <param name="use_gst_timestamps" value="true"/> -->
+      <param name="sync_sink" value="false"/>
+
+      <remap from="camera/image_raw/compressed"   to="front/image_raw/compressed"/>
+      <remap from="camera/camera_info"            to="front/camera_info"/>
+    </node>
+
+    <node name="camera_bottom" pkg="gscam" type="gscam" output="screen">
+      <param name="camera_name" value="bottom_camera"/>
+      <param name="camera_info_url" value="package://pepper_bringup/config/bottom_calibration_parameters.ini"/>
+      <param name="gscam_config" value=" udpsrc port=$(arg PORT_CAMERA_BOTTOM) ! application/x-rtp, encoding-name=JPEG,payload=26 ! rtpjpegdepay ! jpegparse"/>
+      <param name="frame_id" value="CameraBottom_optical_frame"/>
+      <param name="image_encoding" value="jpeg"/>
+      <param name="sync_sink" value="false"/>
+
+      <remap from="camera/image_raw/compressed"   to="bottom/image_raw/compressed"/>
+      <remap from="camera/camera_info"            to="bottom/camera_info"/>
+    </node>
+
+    <node name="republish_top" type="republish" pkg="image_transport" output="screen" args="compressed in:=front/image_raw raw out:=front/image_raw" />
+    <node name="republish_bottom" type="republish" pkg="image_transport" output="screen" args="compressed in:=bottom/image_raw raw out:=bottom/image_raw" />
+
+
+    <group if="$(arg enable_processing)">
+      <!-- manager -->
+      <include if="$(arg rectify)" file="$(find rgbd_launch)/launch/includes/manager.launch.xml">
+        <arg name="name" value="$(arg manager)" />
+        <arg name="debug" value="$(arg debug)" />
+        <arg name="num_worker_threads"  value="$(arg num_worker_threads)" />
+      </include>
+
+      <!-- front rgb camera -->
+      <include if="$(arg rectify)" file="$(find rgbd_launch)/launch/includes/rgb.launch.xml">
+        <arg name="rgb" value="front" />
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+        <arg name="debayer_processing" value="$(arg debayer_processing)" />
+      </include>
+
+      <!-- bottom rgb camera -->
+      <include if="$(arg rectify)" file="$(find rgbd_launch)/launch/includes/rgb.launch.xml">
+        <arg name="rgb" value="bottom" />
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+        <arg name="debayer_processing" value="$(arg debayer_processing)" />
+      </include>
+
+      <!-- ir camera -->
+      <include if="$(arg rectify)" file="$(find rgbd_launch)/launch/includes/ir.launch.xml">
+        <arg name="ir" value="ir" />
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+      </include>
+
+      <!-- depth camera -->
+      <include if="$(arg rectify)" file="$(find rgbd_launch)/launch/includes/depth.launch.xml">
+        <arg name="depth" value="depth" />
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+        <arg name="points_xyz" value="$(arg points_xyz)" />
+        <arg name="rectify" value="true" />
+      </include>
+
+      <!-- depth registration -->
+      <include file="$(find rgbd_launch)/launch/includes/depth_registered.launch.xml"
+               if="$(arg depth_registration)">
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+        <!-- <arg name="queue_size" value="100" /> -->
+        <arg name="rgb" value="front" />
+        <arg name="depth" value="depth" />
+        <arg name="depth_registered" value="$(arg depth_registered)" />
+        <arg name="hw_registered_processing" value="$(arg hw_registered_processing)" />
+        <arg name="sw_registered_processing" value="$(arg sw_registered_processing)" />
+      </include>
+
+      <!-- Unregistered disparity image -->
+      <include if="$(arg disparity_processing)"
+        file="$(find rgbd_launch)/launch/includes/disparity.launch.xml">
+        <arg name="manager"   value="$(arg manager)" />
+        <arg name="depth"     value="depth" />
+        <arg name="projector" value="ir" />
+        <arg name="respawn"   value="$(arg respawn)" />
+      </include>
+    </group>
+  </group>
+</launch>

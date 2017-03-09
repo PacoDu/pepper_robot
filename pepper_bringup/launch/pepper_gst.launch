@@ -6,7 +6,7 @@
   <arg name="roscore_ip"          default="127.0.0.1" />
   <arg name="network_interface"   default="eth0" />
 
-  <arg name="PORT_CAMERA_TOP"   default="3000" />
+  <arg name="PORT_CAMERA_FRONT"   default="3000" />
   <arg name="PORT_CAMERA_BOTTOM"   default="3001" />
 
   <arg name="namespace"           default="$(optenv ROS_NAMESPACE pepper_robot)" />
@@ -27,21 +27,14 @@
   </include>
 
   <!-- launch perception -->
-  <include file="$(find pepper_bringup)/launch/perception_custom.launch.xml">
-    <arg name="namespace"         value="$(arg namespace)" />
+  <include file="$(find pepper_bringup)/launch/perception_gst.launch.xml" >
+    <arg name="namespace"           value="$(arg namespace)" />
+    <arg name="PORT_CAMERA_FRONT"   value="$(arg PORT_CAMERA_FRONT)" />
+    <arg name="PORT_CAMERA_BOTTOM"  value="$(arg PORT_CAMERA_BOTTOM)" />
+    <arg name="debayer_processing"  value="false" /> <!-- Enable mono publishing -->
   </include>
 
-<!-- <origin rpy="-1.57079632679 0 -1.57079632679" xyz="0 0 0"/> -->
   <node pkg="tf" name="depth_to_top_camera_frame_publisher" type="static_transform_publisher" args="-0.06 0.08 0.0 0.000 0.000 0.000 CameraTop_optical_frame CameraDepth_optical_frame 1"/>
-  <!-- <node pkg="point_cloud_converter" name="point_cloud_converter" type="point_cloud_converter_node" >
-    <remap from="points_in" to="velodyne_pointcloud_points"/>
-    <remap from="points2_out" to="velodyne_points" />
 
-    <remap from="points2_in" to="/pepper_robot/camera/depth_registered/points"/>
-    <remap from="points_out" to="/pepper_robot/camera/depth_registered/points1" />
-
-  </node> -->
-
-  <!-- <node pkg="tf" name="depth_to_top_camera_frame_publisher" type="static_transform_publisher" args="-0.06 0.08 0.0 0.000 0.000 0.000 CameraTop_optical_frame CameraDepth_optical_frame 1"/> -->
   <!-- <node pkg="rviz" type="rviz" name="rviz" args="-d /home/paco/rviz_config/pepper_cppBridge.rviz"/> -->
 </launch>
